@@ -2,6 +2,7 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.6.1/sockjs.min.js"></script>
 <title>Raw Cricket</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Sora:wght@400;600&display=swap');
@@ -416,9 +417,15 @@
     if (!myName || !room) return;
 
     document.getElementById('join-msg').innerText = "Connecting...";
-    const wsProto = location.protocol === "https:" ? "wss" : "ws";
-    const wsHost  = location.hostname === "localhost" ? "localhost:8080" : location.host;
-    ws = new WebSocket(`${wsProto}://${wsHost}/game`);
+    if (location.hostname === "localhost") {
+      // Local dev — plain WebSocket
+      ws = new WebSocket("ws://localhost:8080/game");
+    } else {
+      // Production — SockJS through Railway proxy
+      const sockjs = new SockJS("https://raw-cricket-production.up.railway.app/game-sockjs");
+      // Wrap SockJS to match WebSocket API used in the rest of the code
+      ws = sockjs;
+    }
 
     ws.onopen = () => {
       ws.send(myName + "|" + room);
