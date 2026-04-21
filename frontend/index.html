@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Raw Cricket</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Sora:wght@400;600&display=swap');
+
+  :root {
+    --bg: #0a0f1e;
+    --surface: #111827;
+    --accent: #22d3ee;
+    --green: #4ade80;
+    --red: #f87171;
+    --yellow: #fbbf24;
+    --text: #e2e8f0;
+    --muted: #64748b;
+  }
+
+  /* ── Batting theme (blue) ── */
+  body.batting {
+    --bg: #060d1f;
+    --surface: #0d1f3c;
+    --accent: #38bdf8;
+    background: linear-gradient(160deg, #060d1f 0%, #0a1e3d 100%);
+  }
+  body.batting .card { border-color: #1e3a5f; }
+  body.batting #turn-label { color: #38bdf8; }
+
+  /* ── Bowling theme (red) ── */
+  body.bowling {
+    --bg: #1a0808;
+    --surface: #2d1010;
+    --accent: #f87171;
+    background: linear-gradient(160deg, #1a0808 0%, #2d1010 100%);
+  }
+  body.bowling .card { border-color: #5a1f1f; }
+  body.bowling #turn-label { color: #f87171; }
+
+  /* smooth theme transition */
+  body { transition: background 0.6s ease; }
+  .card { transition: border-color 0.6s ease; }
+
+  /* ── Series score bar ── */
+  #series-bar {
+    display: none;
+    background: var(--surface);
+    border: 1px solid #1e293b;
+    border-radius: 10px;
+    padding: 8px 20px;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.2rem;
+    letter-spacing: 2px;
+    color: var(--yellow);
+    text-align: center;
+    margin-bottom: 12px;
+    width: 100%;
+    max-width: 480px;
+  }
+  #series-bar.show { display: block; }
+
+  /* series score inside overlays */
+  .series-overlay-score {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.4rem;
+    letter-spacing: 2px;
+    color: var(--yellow);
+    margin-top: 4px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Sora', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 16px;
+  }
+
+  h1 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 3rem;
+    letter-spacing: 4px;
+    color: var(--accent);
+    margin-bottom: 8px;
+  }
+
+  .subtitle { color: var(--muted); font-size: 0.85rem; margin-bottom: 32px; }
+
+  /* ── Join Screen ── */
+  #join-screen {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+    max-width: 340px;
+  }
+
+  input {
+    background: var(--surface);
+    border: 1px solid #1e293b;
+    color: var(--text);
+    padding: 12px 16px;
+    border-radius: 10px;
+    font-size: 1rem;
+    font-family: 'Sora', sans-serif;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  input:focus { border-color: var(--accent); }
+
+  .btn {
+    background: var(--accent);
+    color: #0a0f1e;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 10px;
+    font-size: 1rem;
+    font-family: 'Sora', sans-serif;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.1s;
+  }
+  .btn:hover { opacity: 0.85; }
+  .btn:active { transform: scale(0.97); }
+
+  .btn-outline {
+    background: transparent;
+    border: 2px solid var(--accent);
+    color: var(--accent);
+  }
+
+  .btn-yellow {
+    background: var(--yellow);
+    color: #0a0f1e;
+  }
+
+  .btn-green {
+    background: var(--green);
+    color: #0a0f1e;
+  }
+
+  /* ── Game Screen ── */
+  #game-screen { display: none; width: 100%; max-width: 480px; }
+
+  .card {
+    background: var(--surface);
+    border-radius: 14px;
+    padding: 20px;
+    margin-bottom: 16px;
+    border: 1px solid #1e293b;
+  }
+
+  /* ── Coin ── */
+  .coin-wrap { perspective: 600px; width: 100px; height: 100px; margin: 16px auto; }
+
+  .coin {
+    width: 100px; height: 100px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #fde68a, #b45309);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.3rem; font-weight: 700; color: #78350f;
+    box-shadow: 0 4px 20px rgba(251,191,36,0.4);
+    transition: transform 1.2s ease;
+    transform-style: preserve-3d;
+  }
+
+  .coin.flipping { animation: coinFlip 1.2s ease forwards; }
+
+  @keyframes coinFlip {
+    0%   { transform: rotateY(0deg); }
+    100% { transform: rotateY(1440deg); }
+  }
+
+  /* ── Status bar ── */
+  .status-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+
+  .score-display {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2.5rem;
+    color: var(--green);
+    line-height: 1;
+  }
+
+  /* ── Timer ── */
+  .timer-bar-wrap {
+    background: #1e293b;
+    border-radius: 99px;
+    height: 6px;
+    margin: 10px 0;
+    overflow: hidden;
+  }
+  .timer-bar {
+    height: 100%;
+    border-radius: 99px;
+    background: var(--accent);
+    transition: width 1s linear, background 1s linear;
+  }
+
+  /* ── Number buttons ── */
+  .num-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-top: 10px;
+  }
+
+  .num-btn {
+    background: #1e293b;
+    border: 2px solid #334155;
+    color: var(--text);
+    border-radius: 12px;
+    padding: 16px;
+    font-size: 1.4rem;
+    font-family: 'Bebas Neue', sans-serif;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, transform 0.1s;
+  }
+  .num-btn:hover:not(:disabled) { background: #273548; border-color: var(--accent); }
+  .num-btn:active:not(:disabled) { transform: scale(0.94); }
+  .num-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  /* ── Reveal row ── */
+  .reveal {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    font-size: 0.9rem;
+  }
+
+  .reveal-num {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2.2rem;
+    color: var(--yellow);
+  }
+
+  /* ── Overlay ── */
+  .overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.88);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 20px;
+    text-align: center;
+    padding: 40px 24px;
+    overflow-y: auto;
+  }
+  .overlay.show { display: flex; }
+
+  #rematch-area { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+
+  .overlay-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 4rem;
+    letter-spacing: 4px;
+    line-height: 1;
+  }
+
+  .overlay-sub { font-size: 1.1rem; color: var(--text); }
+
+  /* ── Toss area ── */
+  #toss-area { min-height: 60px; display: flex; flex-direction: column; gap: 10px; align-items: center; }
+
+  .toss-btns { display: flex; gap: 12px; }
+
+  #info-msg { color: var(--muted); font-size: 0.9rem; text-align: center; margin-top: 8px; }
+  #turn-label { font-size: 1rem; font-weight: 600; color: var(--accent); }
+</style>
+</head>
+<body>
+
+<h1>🏏 RAW CRICKET</h1>
+<p class="subtitle">Real-Time 2-Player Hand Cricket</p>
+
+<!-- Series score bar (shown during active series) -->
+<div id="series-bar"></div>
+
+<!-- Join -->
+<div id="join-screen">
+  <input id="nameInput" placeholder="Your name" />
+  <input id="roomInput" placeholder="Room code" />
+  <button class="btn" onclick="joinGame()">Join Room</button>
+  <p id="join-msg" style="color:var(--muted);font-size:0.85rem;text-align:center;"></p>
+</div>
+
+<!-- Game -->
+<div id="game-screen">
+
+  <!-- Toss card -->
+  <div class="card" id="toss-card">
+    <div class="coin-wrap"><div class="coin" id="coin">?</div></div>
+    <div id="toss-area"></div>
+    <p id="info-msg"></p>
+  </div>
+
+  <!-- Score card (hidden until game starts) -->
+  <div class="card" id="score-card" style="display:none;">
+    <div class="status-row">
+      <span id="innings-label">1st Innings</span>
+      <span id="target-label" style="color:var(--yellow);"></span>
+    </div>
+    <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:8px;">
+      <div>
+        <div style="color:var(--muted);font-size:0.8rem;" id="batting-label">Batting</div>
+        <div class="score-display" id="score-display">0</div>
+      </div>
+      <div style="text-align:right;">
+        <div style="color:var(--muted);font-size:0.8rem;">Need</div>
+        <div class="score-display" id="need-display" style="color:var(--yellow);">—</div>
+      </div>
+    </div>
+    <div id="turn-label">Waiting...</div>
+    <div class="timer-bar-wrap"><div class="timer-bar" id="timer-bar" style="width:100%"></div></div>
+
+    <!-- Last reveal -->
+    <div id="reveal-area" class="reveal" style="display:none;">
+      <div>
+        <div style="color:var(--muted);font-size:0.75rem;" id="p1-reveal-name">P1</div>
+        <div class="reveal-num" id="p1-reveal-num">—</div>
+      </div>
+      <div style="color:var(--muted);">vs</div>
+      <div>
+        <div style="color:var(--muted);font-size:0.75rem;" id="p2-reveal-name">P2</div>
+        <div class="reveal-num" id="p2-reveal-num">—</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Number pad -->
+  <div class="card" id="pad-card" style="display:none;">
+    <p id="pad-header" style="color:var(--muted);font-size:0.85rem;margin-bottom:8px;">Pick your number</p>
+    <div class="num-grid" id="num-grid">
+      <button class="num-btn" onclick="playMove(1)" id="btn1">1</button>
+      <button class="num-btn" onclick="playMove(2)" id="btn2">2</button>
+      <button class="num-btn" onclick="playMove(3)" id="btn3">3</button>
+      <button class="num-btn" onclick="playMove(4)" id="btn4">4</button>
+      <button class="num-btn" onclick="playMove(5)" id="btn5">5</button>
+      <button class="num-btn" onclick="playMove(6)" id="btn6">6</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- OUT overlay -->
+<div class="overlay" id="out-overlay">
+  <div class="overlay-title" style="color:var(--red);">OUT! 🏏</div>
+  <div class="overlay-sub" id="out-msg"></div>
+</div>
+
+<!-- WIN overlay -->
+<div class="overlay" id="win-overlay">
+  <div class="overlay-title" style="color:var(--green);">🏆 WINS!</div>
+  <div class="overlay-sub" id="win-msg"></div>
+  <div class="series-overlay-score" id="win-series-score"></div>
+  <div id="rematch-area">
+    <button class="btn btn-yellow" onclick="requestRematch()" id="rematch-btn" style="font-size:1.1rem;padding:14px 32px;">🔄 New Match</button>
+    <button class="btn btn-outline" onclick="quitRoom()" style="font-size:1rem;padding:12px 28px;">🚪 Quit Room</button>
+    <p id="rematch-status" style="color:var(--muted);font-size:0.85rem;margin-top:4px;"></p>
+  </div>
+</div>
+
+<!-- TIE overlay -->
+<div class="overlay" id="tie-overlay">
+  <div class="overlay-title" style="color:var(--yellow);">🤝 MATCH TIE!</div>
+  <div class="overlay-sub" style="color:var(--muted);">Both teams scored the same — it's a tie!</div>
+  <div class="series-overlay-score" id="tie-series-score"></div>
+  <div id="tie-rematch-area">
+    <button class="btn btn-yellow" onclick="requestRematch()" id="tie-rematch-btn" style="font-size:1.1rem;padding:14px 32px;">🔄 New Match</button>
+    <button class="btn btn-outline" onclick="quitRoom()" style="font-size:1rem;padding:12px 28px;">🚪 Quit Room</button>
+    <p id="tie-rematch-status" style="color:var(--muted);font-size:0.85rem;margin-top:4px;"></p>
+  </div>
+</div>
+
+<script>
+  let ws;
+  let myName = "";
+  let myIndex = -1;
+  let timerInterval;
+  let myTurn = false;
+
+  // Series score — persists across rematches until quit
+  let series = {};   // { "raghav": 2, "shreyas": 1 }
+  let seriesActive = false;
+
+  function seriesText() {
+    return Object.entries(series).map(([n,s]) => n + ' ' + s).join('  —  ');
+  }
+
+  function updateSeriesBar() {
+    const bar = document.getElementById('series-bar');
+    if (!seriesActive) { bar.classList.remove('show'); return; }
+    bar.innerText = '📊 ' + seriesText();
+    bar.classList.add('show');
+  }
+
+  function joinGame() {
+    myName = document.getElementById('nameInput').value.trim();
+    const room = document.getElementById('roomInput').value.trim();
+    if (!myName || !room) return;
+
+    document.getElementById('join-msg').innerText = "Connecting...";
+    const wsProto = location.protocol === "https:" ? "wss" : "ws";
+    const wsHost  = location.hostname === "localhost" ? "localhost:8080" : location.host;
+    ws = new WebSocket(`${wsProto}://${wsHost}/game`);
+
+    ws.onopen = () => {
+      ws.send(myName + "|" + room);
+      document.getElementById('join-screen').style.display = 'none';
+      document.getElementById('game-screen').style.display = 'block';
+      setInfo("Waiting for opponent...");
+    };
+
+    ws.onmessage = (e) => handleMessage(e.data);
+    ws.onerror   = () => { document.getElementById('join-msg').innerText = "Connection failed."; };
+  }
+
+  function handleMessage(msg) {
+
+    // ── Toss messages ──────────────────────────────────────────────────────
+
+    if (msg === "SHOW_TOSS_CHOICE") {
+      setToss(`
+        <p style="color:var(--muted);margin-bottom:10px;">Pick heads or tails</p>
+        <div class="toss-btns">
+          <button class="btn btn-yellow" onclick="sendMsg('HEAD')">HEAD</button>
+          <button class="btn btn-outline" onclick="sendMsg('TAIL')">TAIL</button>
+        </div>
+      `);
+      setInfo("");
+    }
+
+    if (msg === "WAIT_TOSS") {
+      setToss("");
+      setInfo("⏳ Waiting for opponent to pick heads/tails...");
+    }
+
+    if (msg === "SHOW_FLIP") {
+      setToss(`<button class="btn btn-yellow" onclick="flipCoin()">🪙 Flip Coin</button>`);
+      setInfo("Opponent picked — your turn to flip!");
+    }
+
+    if (msg === "WAIT_FLIP") {
+      setToss("");
+      setInfo("⏳ Opponent is flipping the coin...");
+    }
+
+    if (msg.startsWith("TOSS_RESULT:")) {
+      const result = msg.split(":")[1];
+      const coin = document.getElementById('coin');
+      coin.classList.add('flipping');
+      setTimeout(() => {
+        coin.innerText = result;
+        coin.classList.remove('flipping');
+      }, 1200);
+    }
+
+    if (msg.startsWith("TOSS_WIN:")) {
+      const winner = msg.split(":")[1];
+      setInfo(`🎉 ${winner} won the toss!`);
+    }
+
+    if (msg === "SHOW_DECISION") {
+      setTimeout(() => {
+        setToss(`
+          <p style="color:var(--muted);margin-bottom:10px;">You won the toss! Choose:</p>
+          <div class="toss-btns">
+            <button class="btn btn-green" onclick="sendMsg('BAT')">🏏 BAT</button>
+            <button class="btn btn-outline" onclick="sendMsg('BOWL')">🎳 BOWL</button>
+          </div>
+        `);
+      }, 1400);
+    }
+
+    if (msg.startsWith("DECISION:")) {
+      const decisionText = msg.split(":")[1]; // e.g. "raghav bats first"
+      setInfo("🏏 " + decisionText);
+      // Extract batter name — format is "<name> bats first"
+      const firstBatter = decisionText.replace(' bats first', '').trim();
+      applyInningsTheme(firstBatter);
+    }
+
+    // ── Game start ─────────────────────────────────────────────────────────
+
+    if (msg === "START") {
+      setTimeout(() => {
+        document.getElementById('toss-card').style.display = 'none';
+        document.getElementById('score-card').style.display = 'block';
+        document.getElementById('pad-card').style.display  = 'block';
+      }, 800);
+    }
+
+    // TURN:<playerIndex>:<playerName>
+    if (msg.startsWith("TURN:")) {
+      const parts = msg.split(":");
+      const name  = parts[2];
+
+      myTurn = (name === myName);
+
+      if (myTurn) {
+        document.getElementById('turn-label').innerText = "⚡ Your turn — pick a number!";
+        document.getElementById('pad-header').innerText = "Pick your number";
+        document.getElementById('num-grid').style.display = 'grid';
+        setNumPad(true);
+      } else {
+        document.getElementById('turn-label').innerText = `⏳ ${name} is choosing...`;
+        document.getElementById('pad-header').innerText = `⏳ ${name} is choosing...`;
+        document.getElementById('num-grid').style.display = 'none';
+      }
+
+      // Clear last reveal when a new ball starts
+      document.getElementById('reveal-area').style.display = 'none';
+      document.getElementById('p1-reveal-num').innerText = '—';
+      document.getElementById('p2-reveal-num').innerText = '—';
+
+      startTimer();
+    }
+
+    if (msg.startsWith("BATTER_PLAYED:")) {
+      const name = msg.split(":")[1];
+      if (name !== myName) {
+        document.getElementById('turn-label').innerText = `${name} played — your turn to bowl!`;
+        document.getElementById('pad-header').innerText = "Your turn to bowl!";
+        document.getElementById('num-grid').style.display = 'grid';
+        setNumPad(true);
+        startTimer();
+      } else {
+        document.getElementById('turn-label').innerText = "⏳ Waiting for bowler...";
+        document.getElementById('pad-header').innerText = "⏳ Waiting for bowler...";
+        document.getElementById('num-grid').style.display = 'none';
+      }
+    }
+
+    // REVEAL:<batterName>:<batterMove>:<bowlerName>:<bowlerMove>
+    if (msg.startsWith("REVEAL:")) {
+      const p = msg.split(":");
+      const ra = document.getElementById('reveal-area');
+      ra.style.display = 'flex';
+      ra.style.opacity = '1';
+      document.getElementById('p1-reveal-name').innerText = p[1];
+      document.getElementById('p1-reveal-num').innerText  = p[2];
+      document.getElementById('p2-reveal-name').innerText = p[3];
+      document.getElementById('p2-reveal-num').innerText  = p[4];
+      // Fade out after 2.5s so it doesn't linger into next ball
+      clearTimeout(window._revealTimer);
+      window._revealTimer = setTimeout(() => {
+        ra.style.transition = 'opacity 0.6s';
+        ra.style.opacity = '0';
+        setTimeout(() => { ra.style.display = 'none'; ra.style.opacity = '1'; ra.style.transition = ''; }, 650);
+      }, 2500);
+    }
+
+    // SCORE:<name>:<runs>
+    if (msg.startsWith("SCORE:")) {
+      const p = msg.split(":");
+      document.getElementById('batting-label').innerText = p[1] + " batting";
+      document.getElementById('score-display').innerText = p[2];
+    }
+
+    // TARGET:<runs>
+    if (msg.startsWith("TARGET:")) {
+      const t = msg.split(":")[1];
+      document.getElementById('target-label').innerText = "Target: " + t;
+      document.getElementById('innings-label').innerText = "2nd Innings";
+      document.getElementById('need-display').innerText = t;
+      // Innings switched — flip theme (batter and bowler swap)
+      flipInningsTheme();
+    }
+
+    // NEED:<runs>
+    if (msg.startsWith("NEED:")) {
+      document.getElementById('need-display').innerText = msg.split(":")[1];
+    }
+
+    // OUT:<batterName>
+    if (msg.startsWith("OUT:")) {
+      clearInterval(timerInterval);
+      const name = msg.split(":")[1];
+      document.getElementById('out-msg').innerText = name + " is OUT!";
+      document.getElementById('out-overlay').classList.add('show');
+      setTimeout(() => {
+        document.getElementById('out-overlay').classList.remove('show');
+        document.getElementById('score-display').innerText = "0";
+        document.getElementById('need-display').innerText = "—";
+        document.getElementById('reveal-area').style.display = 'none';
+      }, 2200);
+    }
+
+    // WIN:<n>
+    if (msg.startsWith("WIN:")) {
+      clearInterval(timerInterval);
+      setNumPad(false);
+      document.body.classList.remove('batting', 'bowling');
+      const winner = msg.split(":")[1];
+      // Update series score
+      series[winner] = (series[winner] || 0) + 1;
+      seriesActive = true;
+      updateSeriesBar();
+      // Show in overlay
+      document.getElementById('win-msg').innerText = winner + " wins! 🎉";
+      document.getElementById('win-series-score').innerText = '📊 ' + seriesText();
+      // Reset button fresh for this match
+      document.getElementById('rematch-btn').disabled = false;
+      document.getElementById('rematch-btn').innerText = '🔄 New Match';
+      document.getElementById('rematch-status').innerText = '';
+      document.getElementById('win-overlay').classList.add('show');
+    }
+
+    // REMATCH_WAIT — opponent clicked first, prompt this player
+    if (msg === "REMATCH_WAIT") {
+      // Update whichever overlay is visible
+      document.getElementById('rematch-status').innerText     = "⚡ Opponent wants a rematch!";
+      document.getElementById('tie-rematch-status').innerText = "⚡ Opponent wants a rematch!";
+      document.getElementById('rematch-btn').disabled = false;
+      document.getElementById('rematch-btn').innerText = '🔄 New Match';
+      document.getElementById('tie-rematch-btn').disabled = false;
+      document.getElementById('tie-rematch-btn').innerText = '🔄 New Match';
+    }
+
+    // REMATCH_START — both agreed, reset UI and go to toss
+    if (msg === "REMATCH_START") {
+      document.getElementById('win-overlay').classList.remove('show');
+      document.getElementById('tie-overlay').classList.remove('show');
+      document.body.classList.remove('batting', 'bowling');
+      iAmBatting = false;
+      myTurn = false;
+      clearInterval(timerInterval);
+      clearTimeout(window._revealTimer);
+      document.getElementById('score-display').innerText    = '0';
+      document.getElementById('need-display').innerText     = '—';
+      document.getElementById('target-label').innerText     = '';
+      document.getElementById('innings-label').innerText    = '1st Innings';
+      document.getElementById('batting-label').innerText    = 'Batting';
+      document.getElementById('turn-label').innerText       = 'Waiting...';
+      document.getElementById('reveal-area').style.display  = 'none';
+      document.getElementById('timer-bar').style.width      = '100%';
+      document.getElementById('timer-bar').style.background = 'var(--accent)';
+      document.getElementById('score-card').style.display   = 'none';
+      document.getElementById('pad-card').style.display     = 'none';
+      document.getElementById('toss-card').style.display    = 'block';
+      const coin = document.getElementById('coin');
+      coin.innerText = '?';
+      coin.classList.remove('flipping');
+      setToss('');
+      setInfo('New match starting...');
+      setNumPad(false);
+    }
+
+    // TIE
+    if (msg === "TIE") {
+      clearInterval(timerInterval);
+      setNumPad(false);
+      document.body.classList.remove('batting', 'bowling');
+      seriesActive = true;
+      // Tie doesn't add to either score but show current series
+      updateSeriesBar();
+      const st = seriesText();
+      document.getElementById('tie-series-score').innerText = st ? '📊 ' + st : '';
+      document.getElementById('tie-rematch-btn').disabled = false;
+      document.getElementById('tie-rematch-btn').innerText = '🔄 New Match';
+      document.getElementById('tie-rematch-status').innerText = '';
+      document.getElementById('tie-overlay').classList.add('show');
+    }
+
+    // OPPONENT_LEFT — other player disconnected
+    if (msg === "OPPONENT_LEFT") {
+      clearInterval(timerInterval);
+      setNumPad(false);
+      document.getElementById('win-overlay').classList.remove('show');
+      document.getElementById('out-overlay').classList.remove('show');
+      // Show a dismissible notice on the toss/score area
+      document.getElementById('score-card').style.display  = 'none';
+      document.getElementById('pad-card').style.display    = 'none';
+      document.getElementById('toss-card').style.display   = 'block';
+      setToss('');
+      setInfo('⚠️ Opponent left the room. Share the room code for a new player to join.');
+    }
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+
+  function sendMsg(v) { if (ws && ws.readyState === 1) ws.send(String(v)); }
+
+  // currentBatterIsSelf = true means I am batting this innings → blue
+  // Called once on DECISION, flipped on TARGET
+  let iAmBatting = false;
+
+  function applyInningsTheme(batterName) {
+    iAmBatting = (batterName === myName);
+    document.body.classList.remove('batting', 'bowling');
+    document.body.classList.add(iAmBatting ? 'batting' : 'bowling');
+  }
+
+  function flipInningsTheme() {
+    iAmBatting = !iAmBatting;
+    document.body.classList.remove('batting', 'bowling');
+    document.body.classList.add(iAmBatting ? 'batting' : 'bowling');
+  }
+
+  function requestRematch() {
+    document.getElementById('rematch-btn').disabled = true;
+    document.getElementById('rematch-btn').innerText = '⏳ Waiting for opponent...';
+    document.getElementById('rematch-status').innerText = '';
+    sendMsg('REMATCH');
+  }
+
+  function quitRoom() {
+    if (ws) ws.close();
+    document.getElementById('win-overlay').classList.remove('show');
+    document.getElementById('tie-overlay').classList.remove('show');
+    document.body.classList.remove('batting', 'bowling');
+
+    // Determine series result
+    let seriesMsg = 'You left the room.';
+    if (seriesActive && Object.keys(series).length > 0) {
+      const sorted = Object.entries(series).sort((a,b) => b[1]-a[1]);
+      if (sorted.length >= 2 && sorted[0][1] === sorted[1][1]) {
+        seriesMsg = 'Series tied! ' + seriesText();
+      } else {
+        seriesMsg = sorted[0][0] + ' won the series! 🏆  ' + seriesText();
+      }
+    }
+
+    // Reset series
+    series = {};
+    seriesActive = false;
+    document.getElementById('series-bar').classList.remove('show');
+
+    document.getElementById('game-screen').style.display = 'none';
+    document.getElementById('join-screen').style.display = 'flex';
+    document.getElementById('nameInput').value = myName;
+    document.getElementById('roomInput').value = '';
+    document.getElementById('join-msg').innerText = seriesMsg;
+    myName = '';
+    myTurn = false;
+  }
+
+  function playMove(n) {
+    if (!myTurn) return;
+    setNumPad(false);
+    myTurn = false;
+    sendMsg(n);
+  }
+
+  function flipCoin() {
+    setToss("<p style='color:var(--muted)'>Flipping...</p>");
+    sendMsg("FLIP");
+  }
+
+  function setToss(html) {
+    document.getElementById('toss-area').innerHTML = html;
+  }
+
+  function setInfo(text) {
+    document.getElementById('info-msg').innerText = text;
+  }
+
+  function setNumPad(enabled) {
+    for (let i = 1; i <= 6; i++) {
+      document.getElementById('btn' + i).disabled = !enabled;
+    }
+  }
+
+  function startTimer(active) {
+    clearInterval(timerInterval);
+    const bar = document.getElementById('timer-bar');
+    let t = 10;
+    bar.style.width = "100%";
+    bar.style.background = "var(--accent)";
+
+    timerInterval = setInterval(() => {
+      t--;
+      bar.style.width = (t / 10 * 100) + "%";
+      if (t <= 3) bar.style.background = "var(--red)";
+      if (t <= 0) clearInterval(timerInterval);
+    }, 1000);
+  }
+
+  // Disable pad initially
+  setNumPad(false);
+</script>
+</body>
+</html>
