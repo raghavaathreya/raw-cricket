@@ -419,7 +419,7 @@
     const wsProto = location.protocol === "https:" ? "wss" : "ws";
     const wsHost  = location.hostname === "localhost"
                     ? "localhost:8080"
-                    : "raw-cricket-production.up.railway.app";
+                    : "raw-cricket.onrender.com";
     ws = new WebSocket(`${wsProto}://${wsHost}/game`);
 
     ws.onopen = () => {
